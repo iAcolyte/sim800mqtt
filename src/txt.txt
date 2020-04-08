@@ -1,0 +1,105 @@
+#include "gprs.h"
+
+GPRS::GPRS() {
+  SIM800.begin(9600); 
+  while (this->SendATCommand("AT",10).indexOf("OK")==-1){ delay(100);}
+}
+
+bool GPRS::Connect() {
+  String res = this->SendATCommand("AT+CFUN=1",10);
+  Serial.println(res);
+  res = this->SendATCommand("AT+CPIN?",10);
+  Serial.println(res);
+  res = this->SendATCommand("AT+CSTT=\"internet\",\"\",\"\"",10);
+  Serial.println(res);
+  delay(100);
+  res = this->SendATCommand("AT+CIICR",10000);
+  if (res.indexOf("OK")==-1)
+  {
+    return false;
+  }
+  Serial.println(res);
+  delay(100);
+  res = this->SendATCommand("AT+CIFSR",10000);
+  Serial.println(res);
+  delay(100);
+  return true;
+}
+
+String GPRS::SendATCommand(String command, uint16_t timeout) {
+  SIM800.flush();
+  SIM800.println(command);
+  while (!SIM800.available()) { if (timeout==0) return "null"; timeout--; delay(1); }
+  String res = SIM800.readString();
+  res[0] = 'S';
+  return res;
+}
+
+void _gprsStart(){
+  
+}
+bool  GPRS::TCPConnect(String address, String port){
+
+  String res = this->SendATCommand("AT+CIPSTART=\"TCP\",\""+address+"\","+port,10000);
+  Serial.println(res);
+  return res.indexOf("OK")!=-1 || res.indexOf("ALREADY CONNECT")!=-1;
+}
+bool GPRS::TCPConnect(IPAddress address, uint16_t port){
+  String addr = String(address[0])+"."+String(address[1])+"."+String(address[2])+"."+String(address[3]);
+  String prt = String(port);
+  return this->TCPConnect(addr,prt);
+}
+bool GPRS::SendData(uint8_t data, uint16_t timeout){
+  this->SendATCommand("AT+CIPSEND",1000);
+  this->SIM800.flush();
+  this->SIM800.write(data);
+  delay(100);
+  this->SIM800.write(0x1A);
+  while (!this->SIM800.available()) { if (timeout==0) return "null"; timeout--; delay(1); }
+  String res = this->SIM800.readString();
+  return res.indexOf("SEND OK")!=-1;
+}
+
+bool GPRS::SendData(uint8_t* data, size_t size, uint16_t timeout){
+  this->SendATCommand("AT+CIPSEND",1000);
+  this->SIM800.flush();
+  for (size_t i = 0; i < size; i++)
+  {
+    this->SIM800.write(data[0]);
+  }
+  delay(10);
+  this->SIM800.write(0x1A);
+  while (!this->SIM800.available()) { if (timeout==0) return "null"; timeout--; delay(1); }
+  String res = this->SIM800.readString();
+  return res.indexOf("SEND OK")!=-1;
+}
+int GPRS::Read(){
+  if (this->SIM800.available())
+    return this->SIM800.read();
+  return -1;
+}
+int GPRS::Read(uint8_t *buf, size_t size) {
+  size_t i = 0;
+  while (this->SIM800.available()) {
+    buf[i] = this->SIM800.read();
+  }
+  return i+1;
+}
+
+bool GPRS::Avaialable(){
+    return this->SIM800.available();
+}
+void GPRS::Flush(){
+    this->SIM800.flush();
+}
+void GPRS::Disconnect(){
+  //TODO: Send Disconnect command
+  this->SendATCommand("AT+CIPSEND",1000);
+}
+
+void GPRS::Loop(){
+    if (this->SIM800.available())           // Ожидаем прихода данных (ответа) от модема...
+        Serial.write(this->SIM800.read());    // ...и выводим их в Serial
+    if (Serial.available())           // Ожидаем команды по Serial...
+        this->SIM800.write(Serial.read());    // ...и отправляем полученную команду модему
+}
