@@ -27,5 +27,6 @@ class GPRSClient : public Client {
         operator bool() { return this->connected()==1; }
 
         String sendATCommand(String, uint16_t);
+        String sendATCommand(const char*, uint16_t);
         GPRSClient();
 };

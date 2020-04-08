@@ -5,29 +5,29 @@ GPRSClient::GPRSClient(){}
 bool GPRSClient::begin(uint8_t pinRX, uint8_t pinTX, String apn){
   this->gprsSerial = SoftwareSerial(pinRX,pinTX);
   this->gprsSerial.begin(9600); 
-  while (this->sendATCommand("AT",10).indexOf("OK")==-1){ delay(100);}
-  this->sendATCommand("AT+CFUN=1",10);
-  this->sendATCommand("AT+CIPMODE=1",1000);
-  this->sendATCommand("AT+CPIN?",10);
+  while (this->sendATCommand(F("AT"),10).indexOf("OK")==-1){ delay(100);}
+  this->sendATCommand(F("AT+CFUN=1"),10);
+  this->sendATCommand(F("AT+CIPMODE=1"),1000);
+  this->sendATCommand(F("AT+CPIN?"),10);
   this->sendATCommand("AT+CSTT=\""+apn+"\",\"\",\"\"",100);
   delay(100);
-  this->sendATCommand("AT+CIICR",10000);
+  this->sendATCommand(F("AT+CIICR"),10000);
   delay(100);
-  String res = this->sendATCommand("AT+CIFSR",10000);
+  String res = this->sendATCommand(F("AT+CIFSR"),10000);
   return res.indexOf("ERROR")==-1;
 }
 bool GPRSClient::begin(uint8_t pinRX, uint8_t pinTX, String apn, String login, String password){
   this->gprsSerial = SoftwareSerial(pinRX,pinTX);
   this->gprsSerial.begin(9600);
-  while (this->sendATCommand("AT",10).indexOf("OK")==-1){ delay(100);}
-  this->sendATCommand("AT+CFUN=1",10);
-  this->sendATCommand("AT+CPIN?",10);
-  this->sendATCommand("AT+CIPMODE=1",1000);
+  while (this->sendATCommand(F("AT"),10).indexOf("OK")==-1){ delay(100);}
+  this->sendATCommand(F("AT+CFUN=1"),10);
+  this->sendATCommand(F("AT+CPIN?"),10);
+  this->sendATCommand(F("AT+CIPMODE=1"),1000);
   this->sendATCommand("AT+CSTT=\""+apn+"\",\""+login+"\",\""+password+"\"",100);
   delay(100);
-  this->sendATCommand("AT+CIICR",10000);
+  this->sendATCommand(F("AT+CIICR"),10000);
   delay(100);
-  String res = this->sendATCommand("AT+CIFSR",10000);
+  String res = this->sendATCommand(F("AT+CIFSR"),10000);
   return res.indexOf("ERROR")==-1;
 }
 
@@ -69,14 +69,15 @@ int GPRSClient::connect(const char *host, uint16_t port){
 }
 size_t GPRSClient::write(uint8_t data){
    this->gprsSerial.write(data);
+   return 1;
 }
 size_t GPRSClient::write(const uint8_t *buf, size_t size){
 
   for (size_t i = 0; i < size; i++)
   {   
-    Serial.print("w: ");
+    Serial.print(F("w: "));
     Serial.print(buf[i],HEX);
-    Serial.print(" ");
+    Serial.print(F(" "));
     Serial.println((char)buf[i]);
     this->gprsSerial.write(buf[i]);
   }
@@ -88,9 +89,9 @@ int GPRSClient::available(){
 int GPRSClient::read(){
   if (this->gprsSerial.available()){
     uint8_t byt = this->gprsSerial.read();
-    Serial.print("r: ");
+    Serial.print(F("r: "));
     Serial.print(byt,HEX);
-    Serial.print(" ");
+    Serial.print(F(" "));
     Serial.println((char)byt);
     return byt;
   }
@@ -107,7 +108,7 @@ void GPRSClient::flush(){
 }
 void GPRSClient::stop(){
   gprsSerial.write(0x1A);
-  this->sendATCommand("AT+CIPCLOSE",1000);
+  this->sendATCommand(F("AT+CIPCLOSE"),1000);
   isConnected=false;
 }
 
@@ -117,6 +118,16 @@ uint8_t GPRSClient::connected(){
 }
 
 String GPRSClient::sendATCommand(String command, uint16_t timeout) {
+
+  this->gprsSerial.println(command);
+  while (!this->gprsSerial.available()) { if (timeout==0) return "null"; timeout--; delay(1); }
+  String res = this->gprsSerial.readString();
+  Serial.println(res);
+  if( res[0]=='\0')
+    res[0] = 'A';
+  return res;
+}
+String GPRSClient::sendATCommand(const char *command, uint16_t timeout) {
 
   this->gprsSerial.println(command);
   while (!this->gprsSerial.available()) { if (timeout==0) return "null"; timeout--; delay(1); }
